@@ -3,7 +3,7 @@ Unicode true
 !include "MUI2.nsh"
 
 !define APP_NAME "SlimSSH"
-!define APP_VERSION "0.1.0"
+!define APP_VERSION "0.1.1"
 !define APP_EXE "SlimSSH.exe"
 !define APP_PUBLISHER "SlimSSH"
 !define APP_ID "SlimSSH"
@@ -15,7 +15,7 @@ InstallDirRegKey HKLM "Software\${APP_ID}" "InstallDir"
 RequestExecutionLevel admin
 SetCompressor /SOLID lzma
 
-VIProductVersion "0.1.0.0"
+VIProductVersion "0.1.1.0"
 VIAddVersionKey "ProductName" "${APP_NAME}"
 VIAddVersionKey "FileDescription" "${APP_NAME} Setup"
 VIAddVersionKey "FileVersion" "${APP_VERSION}"
