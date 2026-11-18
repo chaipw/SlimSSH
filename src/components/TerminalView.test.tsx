@@ -6,6 +6,7 @@ import TerminalView from "./TerminalView";
 
 const mocks = vi.hoisted(() => ({
   invoke: vi.fn(),
+  dimensions: { cols: 80, rows: 24 },
   channels: [] as Array<{ onmessage: (event: SessionEvent) => void }>,
   terminals: [] as Array<{
     writes: Uint8Array[];
@@ -32,8 +33,12 @@ vi.mock("@tauri-apps/api/core", () => ({
 
 vi.mock("@xterm/addon-fit", () => ({
   FitAddon: class {
-    fit = vi.fn();
-    proposeDimensions = vi.fn(() => ({ cols: 80, rows: 24 }));
+    terminal?: { cols: number; rows: number };
+    activate(terminal: { cols: number; rows: number }) { this.terminal = terminal; }
+    fit = vi.fn(() => {
+      if (this.terminal) Object.assign(this.terminal, mocks.dimensions);
+    });
+    proposeDimensions = vi.fn(() => mocks.dimensions);
   },
 }));
 
@@ -49,7 +54,7 @@ vi.mock("@xterm/xterm", () => ({
     constructor() {
       mocks.terminals.push(this);
     }
-    loadAddon() {}
+    loadAddon(addon: { activate(terminal: unknown): void }) { addon.activate(this); }
     open() {}
     onData() {
       return { dispose: vi.fn() };
@@ -119,14 +124,15 @@ const profile = {
 let root: Root | null = null;
 let mountNode: HTMLDivElement;
 
-async function renderTerminal(active = false) {
+async function renderTerminal(active = false, side?: "left" | "right") {
   await act(async () => {
-    root = createRoot(mountNode);
+    root ??= createRoot(mountNode);
     root.render(
       <TerminalView
         sessionId="local-1"
         profile={profile}
         active={active}
+        side={side}
         highlight={false}
         theme="dark"
         fontSize={13}
@@ -153,6 +159,7 @@ beforeEach(() => {
     return Promise.resolve(undefined);
   });
   mocks.channels.length = 0;
+  mocks.dimensions = { cols: 80, rows: 24 };
   mocks.terminals.length = 0;
   ResizeObserverMock.instances = [];
   vi.stubGlobal("ResizeObserver", ResizeObserverMock);
@@ -173,6 +180,18 @@ afterEach(async () => {
 });
 
 describe("TerminalView 输出与清理", () => {
+  it("可见会话进入或退出分屏时立即调整列数并通知 SSH，不依赖尺寸观察器", async () => {
+    await renderTerminal(true);
+    mocks.invoke.mockClear();
+    mocks.dimensions = { cols: 36, rows: 24 };
+    await renderTerminal(true, "left");
+    expect(mocks.invoke).toHaveBeenCalledWith("session_resize", { sessionId: "backend-1", cols: 36, rows: 24 });
+    mocks.dimensions = { cols: 80, rows: 24 };
+    await renderTerminal(true);
+    expect(mocks.invoke).toHaveBeenLastCalledWith("session_resize", { sessionId: "backend-1", cols: 80, rows: 24 });
+    expect(mocks.terminals).toHaveLength(1);
+  });
+
   it("用 Ctrl+V 粘贴剪贴板，并用右键优先粘贴选区", async () => {
     await renderTerminal(true);
     const terminal = mocks.terminals[0];

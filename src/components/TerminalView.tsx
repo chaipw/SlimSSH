@@ -1,6 +1,6 @@
 import { FitAddon } from "@xterm/addon-fit";
 import { Terminal } from "@xterm/xterm";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { decodeBase64 } from "../lib/base64";
 import { Highlighter } from "../lib/highlight";
 import { copySelection, isCopyShortcut, isPasteShortcut, readClipboard } from "../lib/terminalKeys";
@@ -120,6 +120,7 @@ export default function TerminalView({
   const highlighterRef = useRef<Highlighter | null>(null);
   const themeRef = useRef(theme);
   const activeRef = useRef(active);
+  const fitNowRef = useRef<() => void>(() => undefined);
   const scheduleFitRef = useRef<() => void>(() => undefined);
   const sessionPromiseRef = useRef<Promise<string> | null>(null);
   const callbacksRef = useRef({ onStateChange, onBackendId, onError, onClosed, onActivate, onReconnect, onClose });
@@ -306,6 +307,7 @@ export default function TerminalView({
         })
         .catch(reportError);
     };
+    fitNowRef.current = sendResize;
 
     const scheduleFit = () => {
       if (disposed || !activeRef.current || frame !== null) return;
@@ -390,6 +392,7 @@ export default function TerminalView({
 
     return () => {
       disposed = true;
+      fitNowRef.current = () => undefined;
       scheduleFitRef.current = () => undefined;
       resizeObserver.disconnect();
       if (frame !== null) cancelAnimationFrame(frame);
@@ -407,9 +410,15 @@ export default function TerminalView({
     };
   }, [profile.id, sessionId]);
 
-  useEffect(() => {
-    if (active) scheduleFitRef.current();
-  }, [active]);
+  useLayoutEffect(() => {
+    if (active) {
+      fitNowRef.current();
+      scheduleFitRef.current();
+    }
+    // A visible session can move into/out of a pane without changing `active`.
+    // Explicitly refit on that layout change, including on WebViews where the
+    // ResizeObserver notification can lag behind incoming SSH output.
+  }, [active, side]);
 
   useEffect(() => {
     const term = terminalRef.current;

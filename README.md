@@ -40,7 +40,7 @@ npm run build:tauri -- --no-bundle --ci -- --locked
 makensis slimssh.nsi
 ```
 
-生成的安装包为 `installer/SlimSSH-Setup-0.1.0.exe`。也可以运行 `npm run build:tauri`，由 Tauri 生成安装包。
+生成的安装包为 `installer/SlimSSH-Setup-0.1.1.exe`。也可以运行 `npm run build:tauri`，由 Tauri 生成安装包。
 
 ## 使用
 
