@@ -1,0 +1,14 @@
+node_modules/
+dist/
+src-tauri/target/
+src-tauri/gen/schemas/
+*.local
+*.tmp
+.playwright-mcp/
+test-results/
+.toolchain/
+*.exe
+*.zip
+.env
+.env.*
+!.env.example
