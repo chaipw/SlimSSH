@@ -67,7 +67,6 @@ export default function TitleBar({ theme, onToggleTheme, onOpenSettings, sidebar
       <div className="titlebar-brand" data-tauri-drag-region>
         <div className="brand-mark" aria-hidden="true">&gt;_</div>
         <strong>SlimSSH</strong>
-        <span>安全终端工作台</span>
         <button type="button" className="window-control sidebar-toggle" onClick={onToggleSidebar}
           aria-label={sidebarCollapsed ? "展开侧栏" : "收起侧栏"}
           title={sidebarCollapsed ? "展开侧栏" : "收起侧栏"}

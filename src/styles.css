@@ -161,10 +161,10 @@ button.file-row:hover { background: #182126; }
 .terminal-host .xterm { height: 100%; }
 .terminal-host .xterm-viewport { scrollbar-width: thin; scrollbar-color: #354249 #0c1114; }
 .terminal-host .xterm-screen canvas { image-rendering: auto; }
-.workspace-statusbar { height: 27px; min-height: 27px; display: flex; align-items: center; justify-content: space-between; padding: 0 13px; border-top: 1px solid var(--border-soft); background: #1a211f; color: #65747a; font: 500 10px/1 "Cascadia Code", Consolas, monospace; }
+.workspace-statusbar { height: 27px; min-height: 27px; display: flex; align-items: center; justify-content: space-between; padding: 0 13px; border-top: 1px solid var(--border-soft); background: #1a211f; color: #65747a; font: 500 14px/1 "Cascadia Code", Consolas, monospace; }
 .workspace-statusbar > span { display: flex; align-items: center; gap: 7px; }
 .workspace-statusbar > div { display: flex; align-items: center; gap: 18px; }
-.status-toggle { padding: 3px 8px; border: 1px solid #2a363b; border-radius: 3px; background: transparent; color: #65747a; font: 500 10px/1 "Cascadia Code", Consolas, monospace; letter-spacing: .3px; transition: color 90ms ease, border-color 90ms ease, background-color 90ms ease; }
+.status-toggle { padding: 3px 8px; border: 1px solid #2a363b; border-radius: 3px; background: transparent; color: #65747a; font: 500 14px/1 "Cascadia Code", Consolas, monospace; letter-spacing: .3px; transition: color 90ms ease, border-color 90ms ease, background-color 90ms ease; }
 .status-toggle:hover { color: #a8b5ba; border-color: #3a494f; }
 .status-toggle.is-on { border-color: #35604c; background: #17352a; color: var(--cyan); }
 
