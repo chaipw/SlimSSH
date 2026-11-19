@@ -40,7 +40,11 @@ npm run build:tauri -- --no-bundle --ci -- --locked
 makensis slimssh.nsi
 ```
 
-生成的安装包为 `installer/SlimSSH-Setup-0.1.1.exe`。也可以运行 `npm run build:tauri`，由 Tauri 生成安装包。
+生成的安装包为 `installer/SlimSSH-Setup-0.1.2.exe`。也可以运行 `npm run build:tauri`，由 Tauri 生成安装包。
+
+项目 NSIS 安装包会读取用户所选安装目录中 `SlimSSH.exe` 的文件版本：自动升级较旧版本，同版本不重复安装，较新版本则提示并阻止降级。升级失败时保留或恢复旧程序，不清空安装目录中的其他文件。无法读取已有程序版本时停止覆盖，提示用户确认文件或改选目录。
+
+可运行 `powershell -File installer/test-upgrade.ps1` 验证安装升级流程。测试编译隔离安装包，在临时目录验证实际文件替换和版本阻止逻辑，不修改系统安装记录或快捷方式。
 
 ## 使用
 
