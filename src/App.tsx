@@ -79,6 +79,7 @@ export default function App() {
   const [activeId, setActiveId] = useState<string | null>(null);
   const [highlight, setHighlight] = useState(() => localStorage.getItem("slimssh:highlight") !== "off");
   const [sidebarTab, setSidebarTab] = useState<"connections" | "files">("connections");
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(() => localStorage.getItem("slimssh:sidebar-collapsed") === "true");
   const [theme, setTheme] = useState<ThemeMode>(() =>
     localStorage.getItem("slimssh:theme") === "light" ? "light" : "dark",
   );
@@ -91,6 +92,10 @@ export default function App() {
   useEffect(() => {
     localStorage.setItem(DISPLAY_STORAGE, JSON.stringify(displaySizes));
   }, [displaySizes]);
+
+  useEffect(() => {
+    localStorage.setItem("slimssh:sidebar-collapsed", String(sidebarCollapsed));
+  }, [sidebarCollapsed]);
 
   const toggleTheme = useCallback(() => {
     setTheme((current) => (current === "dark" ? "light" : "dark"));
@@ -275,10 +280,11 @@ export default function App() {
       "--term-gutter-font-size": `${displaySizes.gutter}px`,
       "--session-tab-font-size": `${displaySizes.tabs}px`,
     } as CSSProperties}>
-      <TitleBar theme={theme} onToggleTheme={toggleTheme} onOpenSettings={() => setDisplaySettingsOpen(true)} />
+      <TitleBar theme={theme} onToggleTheme={toggleTheme} onOpenSettings={() => setDisplaySettingsOpen(true)}
+        sidebarCollapsed={sidebarCollapsed} onToggleSidebar={() => setSidebarCollapsed((current) => !current)} />
 
       <div className="app-body">
-      <aside className="sidebar" aria-label="侧栏">
+      <aside id="slimssh-sidebar" className="sidebar" aria-label="侧栏" hidden={sidebarCollapsed}>
         <nav className="sidebar-tabs">
           <button
             type="button"

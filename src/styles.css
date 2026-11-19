@@ -37,6 +37,8 @@ code { font-family: "Cascadia Code", "Cascadia Mono", Consolas, monospace; }
 .titlebar.is-inactive .titlebar-brand { opacity: .55; }
 .titlebar-brand { width: 280px; min-width: 280px; display: flex; align-items: center; gap: 9px; padding: 0 14px; border-right: 1px solid var(--border-soft); }
 .titlebar-brand > * { pointer-events: none; }
+.titlebar-brand .sidebar-toggle { pointer-events: auto; flex: 0 0 26px; width: 26px; height: 24px; margin-left: auto; align-self: center; border-radius: 3px; }
+.titlebar-brand .sidebar-toggle svg { width: 16px; height: 16px; }
 .titlebar-brand .brand-mark { width: 21px; height: 21px; border-radius: 4px; font-size: 10px; }
 .titlebar-brand strong { color: #dbe3e5; font-size: 12px; font-weight: 600; letter-spacing: .3px; }
 .titlebar-brand span { color: var(--faint); font-size: 10px; letter-spacing: .5px; white-space: nowrap; }
@@ -53,6 +55,7 @@ code { font-family: "Cascadia Code", "Cascadia Mono", Consolas, monospace; }
 .display-settings-toggle span { pointer-events: none; }
 
 .sidebar { width: 280px; min-width: 280px; height: 100%; display: flex; flex-direction: column; background: #1a211f; border-right: 1px solid var(--border); }
+.sidebar[hidden] { display: none; }
 .sidebar-tabs { display: flex; height: 30px; min-height: 30px; border-bottom: 1px solid var(--border-soft); background: #161d1b; }
 .sidebar-tab { position: relative; flex: 1; border: 0; background: transparent; color: var(--muted); font-size: 12px; font-weight: 600; }
 .sidebar-tab:hover { color: #c3ced2; }

@@ -9,9 +9,11 @@ interface TitleBarProps {
   theme: ThemeMode;
   onToggleTheme: () => void;
   onOpenSettings: () => void;
+  sidebarCollapsed: boolean;
+  onToggleSidebar: () => void;
 }
 
-export default function TitleBar({ theme, onToggleTheme, onOpenSettings }: TitleBarProps) {
+export default function TitleBar({ theme, onToggleTheme, onOpenSettings, sidebarCollapsed, onToggleSidebar }: TitleBarProps) {
   const [maximized, setMaximized] = useState(false);
   const [active, setActive] = useState(true);
 
@@ -66,6 +68,16 @@ export default function TitleBar({ theme, onToggleTheme, onOpenSettings }: Title
         <div className="brand-mark" aria-hidden="true">&gt;_</div>
         <strong>SlimSSH</strong>
         <span>安全终端工作台</span>
+        <button type="button" className="window-control sidebar-toggle" onClick={onToggleSidebar}
+          aria-label={sidebarCollapsed ? "展开侧栏" : "收起侧栏"}
+          title={sidebarCollapsed ? "展开侧栏" : "收起侧栏"}
+          aria-expanded={!sidebarCollapsed} aria-controls="slimssh-sidebar">
+          <svg viewBox="0 0 16 16" aria-hidden="true">
+            <rect x="1.5" y="2.5" width="13" height="11" rx="1" />
+            <path d="M5.5 3v10" />
+            <path d={sidebarCollapsed ? "m8 5.5 2.5 2.5L8 10.5" : "m11 5.5-2.5 2.5 2.5 2.5"} />
+          </svg>
+        </button>
       </div>
 
       <button type="button" className="window-control display-settings-toggle" onClick={onOpenSettings} aria-label="显示设置" title="显示设置" aria-haspopup="dialog">
