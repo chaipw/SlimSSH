@@ -8,6 +8,7 @@ import { chooseDownloadPath, previewFile, errorMessage, sessionListDir, sessionT
 interface FileBrowserProps {
   backendId: string | null;
   connected: boolean;
+  workingDirectory?: string | null;
 }
 
 function normalize(path: string): string {
@@ -33,7 +34,7 @@ function formatSize(size: number): string {
   return `${value.toFixed(value >= 10 ? 0 : 1)} ${units[unit]}`;
 }
 
-export default function FileBrowser({ backendId, connected }: FileBrowserProps) {
+export default function FileBrowser({ backendId, connected, workingDirectory = null }: FileBrowserProps) {
   const [path, setPath] = useState<string | null>(null);
   const [entries, setEntries] = useState<RemoteEntry[]>([]);
   const [error, setError] = useState<string | null>(null);
@@ -47,11 +48,13 @@ export default function FileBrowser({ backendId, connected }: FileBrowserProps) 
   const browser = useRef<HTMLDivElement>(null);
   const transferBusy = useRef(false);
   const loadRequest = useRef(0);
+  const requestedPath = useRef(".");
 
   const load = useCallback(
     async (target: string) => {
       if (!backendId) return;
       const request = ++loadRequest.current;
+      requestedPath.current = target;
       setSelected(null);
       setMenu(null);
       setLoading(true);
@@ -64,6 +67,7 @@ export default function FileBrowser({ backendId, connected }: FileBrowserProps) 
           return left.name.localeCompare(right.name);
         });
         setEntries(directory.entries);
+        requestedPath.current = directory.path;
         setPath(directory.path);
       } catch (cause) {
         if (loadRequest.current === request) setError(errorMessage(cause));
@@ -75,9 +79,9 @@ export default function FileBrowser({ backendId, connected }: FileBrowserProps) 
   );
 
   useEffect(() => {
-    if (backendId && connected) void load(".");
+    if (backendId && connected) void load(workingDirectory ?? ".");
     return () => { loadRequest.current += 1; };
-  }, [backendId, connected, load]);
+  }, [backendId, connected, load, workingDirectory]);
 
   const upload = useCallback(async (files: string[]) => {
     if (!backendId || !path || !connected || loading || transferBusy.current || files.length === 0) return;
@@ -95,7 +99,7 @@ export default function FileBrowser({ backendId, connected }: FileBrowserProps) 
           errors.push(`${name}：${errorMessage(cause)}`);
         }
       }
-      await load(path);
+      await load(requestedPath.current);
       setStatus(`已上传 ${files.length - errors.length}/${files.length} 个文件`);
       if (errors.length) setError(errors.join("\n"));
     } finally {

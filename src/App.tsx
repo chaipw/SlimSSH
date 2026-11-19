@@ -48,6 +48,7 @@ function newWorkspaceSession(profile: ProfileView, instance: number): WorkspaceS
     error: null,
     closedReason: null,
     backendId: null,
+    workingDirectory: null,
   };
 }
 
@@ -261,6 +262,10 @@ export default function App() {
     setSessions((current) => current.map((session) => session.id === id ? { ...session, closedReason: reason } : session));
   }, []);
 
+  const handleDirectoryChange = useCallback((id: string, path: string) => {
+    setSessions((current) => current.map((session) => session.id === id ? { ...session, workingDirectory: path } : session));
+  }, []);
+
   const sessionTabs = sessions.map((session) => ({
     id: session.id,
     name: session.instance === 1 ? session.profile.name : `${session.profile.name} (${session.instance})`,
@@ -319,6 +324,7 @@ export default function App() {
             key={activeSession?.backendId ?? "no-session"}
             backendId={activeSession?.backendId ?? null}
             connected={activeSession?.state === "ready"}
+            workingDirectory={activeSession?.workingDirectory ?? null}
           />
         )}
       </aside>
@@ -441,6 +447,7 @@ export default function App() {
                 onBackendId={handleBackendId}
                 onError={handleSessionError}
                 onClosed={handleSessionClosed}
+                onDirectoryChange={handleDirectoryChange}
                 onActivate={setActiveId}
                 onReconnect={reconnect}
                 onClose={closeSession}
