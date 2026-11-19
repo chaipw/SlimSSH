@@ -40,7 +40,7 @@ it("uploads Windows drops only inside the file pane and uses the current remote 
     expect(mocks.transfer).not.toHaveBeenCalled();
     await act(async () => drop(170));
     expect(mocks.transfer.mock.calls).toEqual(paths.map((local) => [
-      "session-1", { kind: "upload", directory: "/home/demo", local },
+      "session-1", { kind: "upload", directory: "/home/demo", local }, expect.any(Function),
     ]));
     expect(mocks.list).toHaveBeenLastCalledWith("session-1", "/home/demo");
     expect(pane.textContent).toContain("已上传 2/2 个文件");

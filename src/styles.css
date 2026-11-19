@@ -66,6 +66,26 @@ code { font-family: "Cascadia Code", "Cascadia Mono", Consolas, monospace; }
 .file-browser.is-drop-target { outline: 2px solid var(--cyan); outline-offset: -2px; background: var(--panel-raised); }
 .file-transfer-bar { display: flex; align-items: center; gap: 8px; padding: 8px 10px; color: var(--muted); font-size: 11px; }
 .file-transfer-status { margin: 0; padding: 4px 10px; color: var(--cyan); font-size: 11px; overflow-wrap: anywhere; }
+.file-transfer-footer { flex: 0 1 auto; min-height: 0; max-height: 48%; display: flex; flex-direction: column; border-top: 1px solid var(--border); background: var(--panel); }
+.file-transfer-footer .file-transfer-bar { flex: 0 0 auto; padding: 8px 10px 4px; }
+.file-transfer-footer .file-transfer-bar span { min-width: 0; }
+.file-transfer-footer .file-error, .file-transfer-footer .file-transfer-status { flex: 0 1 auto; min-height: 0; max-height: 72px; overflow: auto; }
+.file-upload-summary { display: flex; align-items: center; gap: 8px; padding: 4px 10px; color: var(--cyan); font-size: 11px; }
+.file-upload-summary > span { flex: 1; min-width: 0; overflow-wrap: anywhere; }
+.file-upload-summary button { flex: 0 0 auto; border: 0; padding: 2px; background: transparent; color: var(--muted); font-size: 10px; }
+.file-upload-target { margin: 0; padding: 0 10px 4px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--muted); font-size: 10px; }
+.file-upload-queue { flex: 1 1 auto; min-height: 0; max-height: 120px; overflow-y: auto; list-style: none; margin: 0; padding: 0 10px; scrollbar-width: thin; }
+.file-upload-queue li { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 3px 8px; padding: 4px 0; color: var(--text); font-size: 11px; }
+.file-upload-queue li > span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.file-upload-queue small { color: var(--muted); font-size: 10px; }
+.file-upload-queue li[data-state="uploading"] small { color: var(--cyan); }
+.file-upload-queue li[data-state="failed"] small, .file-upload-queue p { color: var(--danger); }
+.file-upload-queue p { grid-column: 1 / -1; margin: 0; overflow-wrap: anywhere; font-size: 10px; }
+.file-upload-meter { flex: 0 0 auto; display: flex; justify-content: space-between; gap: 8px; padding: 5px 10px; color: var(--muted); font-size: 10px; }
+.file-upload-progress { flex: 0 0 6px; display: block; width: 100%; height: 6px; margin: 0; border: 0; border-radius: 0; appearance: none; background: var(--border-soft); accent-color: var(--cyan); }
+.file-upload-progress::-webkit-progress-bar { background: var(--border-soft); }
+.file-upload-progress::-webkit-progress-value { background: var(--cyan); }
+.file-upload-progress::-moz-progress-bar { background: var(--cyan); }
 .file-menu-backdrop { position: fixed; inset: 0; z-index: 100; }
 .file-menu { position: absolute; min-width: 120px; padding: 4px; border: 1px solid var(--border); border-radius: 5px; background: var(--panel-raised); box-shadow: 0 6px 18px #0003; }
 .file-menu button { width: 100%; padding: 6px 10px; border: 0; border-radius: 3px; background: transparent; text-align: left; }

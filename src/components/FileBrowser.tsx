@@ -4,11 +4,13 @@ import { getCurrentWebview } from "@tauri-apps/api/webview";
 import Modal from "./Modal";
 import { open } from "@tauri-apps/plugin-dialog";
 import { chooseDownloadPath, previewFile, errorMessage, sessionListDir, sessionTransfer, type RemoteEntry } from "../lib/ipc";
+import { clearFinishedUploads, enqueueUploads, useUploadQueue } from "../lib/uploadQueue";
 
 interface FileBrowserProps {
   backendId: string | null;
   connected: boolean;
   workingDirectory?: string | null;
+  sessionName?: string;
 }
 
 function normalize(path: string): string {
@@ -34,7 +36,7 @@ function formatSize(size: number): string {
   return `${value.toFixed(value >= 10 ? 0 : 1)} ${units[unit]}`;
 }
 
-export default function FileBrowser({ backendId, connected, workingDirectory = null }: FileBrowserProps) {
+export default function FileBrowser({ backendId, connected, workingDirectory = null, sessionName = "当前会话" }: FileBrowserProps) {
   const [path, setPath] = useState<string | null>(null);
   const [entries, setEntries] = useState<RemoteEntry[]>([]);
   const [error, setError] = useState<string | null>(null);
@@ -49,6 +51,8 @@ export default function FileBrowser({ backendId, connected, workingDirectory = n
   const transferBusy = useRef(false);
   const loadRequest = useRef(0);
   const requestedPath = useRef(".");
+  const uploads = useUploadQueue();
+  const seenCompletion = useRef(uploads.completion);
 
   const load = useCallback(
     async (target: string) => {
@@ -83,30 +87,25 @@ export default function FileBrowser({ backendId, connected, workingDirectory = n
     return () => { loadRequest.current += 1; };
   }, [backendId, connected, load, workingDirectory]);
 
-  const upload = useCallback(async (files: string[]) => {
-    if (!backendId || !path || !connected || loading || transferBusy.current || files.length === 0) return;
-    transferBusy.current = true;
+  useEffect(() => {
+    const previous = seenCompletion.current;
+    if (previous === uploads.completion) return;
+    seenCompletion.current = uploads.completion;
+    if (connected && backendId && uploads.jobs.some((job) =>
+      (job.completedSequence ?? 0) > previous && job.backendId === backendId && normalize(job.directory) === normalize(requestedPath.current)
+    )) void load(requestedPath.current);
+  }, [uploads.completion, uploads.jobs, backendId, connected, load]);
+
+  const upload = useCallback((files: string[]) => {
+    if (!backendId || !path || !connected || files.length === 0) return;
+    if (loading) {
+      setError("目录正在刷新，请稍后添加上传文件。");
+      return;
+    }
     setStatus(null);
     setError(null);
-    const errors: string[] = [];
-    try {
-      for (const [index, local] of files.entries()) {
-        const name = local.split(/[\\/]/).pop() ?? local;
-        setTransfer(`正在上传 ${index + 1}/${files.length} · ${name}`);
-        try {
-          await sessionTransfer(backendId, { kind: "upload", directory: path, local });
-        } catch (cause) {
-          errors.push(`${name}：${errorMessage(cause)}`);
-        }
-      }
-      await load(requestedPath.current);
-      setStatus(`已上传 ${files.length - errors.length}/${files.length} 个文件`);
-      if (errors.length) setError(errors.join("\n"));
-    } finally {
-      transferBusy.current = false;
-      setTransfer(null);
-    }
-  }, [backendId, path, connected, loading, load]);
+    enqueueUploads(backendId, path, files, sessionName);
+  }, [backendId, path, connected, loading, sessionName]);
 
   const uploadRef = useRef(upload);
   uploadRef.current = upload;
@@ -137,7 +136,7 @@ export default function FileBrowser({ backendId, connected, workingDirectory = n
   const chooseUpload = async () => {
     try {
       const selected = await open({ multiple: true, directory: false });
-      if (selected) await upload(Array.isArray(selected) ? selected : [selected]);
+      if (selected) upload(Array.isArray(selected) ? selected : [selected]);
     } catch (cause) {
       setError(errorMessage(cause));
     }
@@ -175,20 +174,20 @@ export default function FileBrowser({ backendId, connected, workingDirectory = n
     finally { transferBusy.current = false; setTransfer(null); }
   };
 
-  if (!connected || !backendId) {
-    return (
-      <div className="file-browser">
-        <p className="file-empty">先连接一台服务器，再查看远程文件。</p>
-      </div>
-    );
-  }
-
   const current = normalize(path ?? "/");
   const segments = current.split("/").filter(Boolean);
+  const activeUpload = uploads.jobs.find((job) => job.state === "uploading");
+  const waiting = uploads.jobs.filter((job) => job.state === "queued").length;
+  const completed = uploads.jobs.filter((job) => job.state === "completed").length;
+  const failed = uploads.jobs.filter((job) => job.state === "failed").length;
+  const shownUpload = activeUpload ?? uploads.jobs.at(-1);
+  const percent = !shownUpload ? 0 : shownUpload.state === "completed" ? 100 : shownUpload.total === null ? null
+    : shownUpload.total === 0 ? 0 : Math.min(100, Math.max(0, shownUpload.transferred / shownUpload.total * 100));
+  const queueLabels = { queued: "等待上传", uploading: "上传中", completed: "已完成", failed: "失败" };
 
   return (
     <div className={`file-browser${dragging ? " is-drop-target" : ""}`} ref={browser}>
-      <div className="file-path">
+      {connected && backendId && <div className="file-path">
         <button type="button" className="file-up" disabled={!!transfer} onClick={() => void load(parentPath(current))} title="上级目录">
           ↑
         </button>
@@ -206,18 +205,12 @@ export default function FileBrowser({ backendId, connected, workingDirectory = n
         <button type="button" className="file-refresh" disabled={!!transfer} onClick={() => void load(path ?? ".")} title="刷新">
           ↻
         </button>
-      </div>
-
-      <div className="file-transfer-bar">
-        <button type="button" className="button button-small" disabled={!path || loading || !!transfer} onClick={() => void chooseUpload()}>上传文件</button>
-        <span>{dragging ? "松开以上传" : "拖放本地文件到此处"}</span>
-      </div>
-      {(transfer || status) && <p className="file-transfer-status" role="status">{transfer || status}</p>}
-      {error ? <p className="file-error">{error}</p> : null}
+      </div>}
 
       <ul className="file-list">
+        {(!connected || !backendId) && <li className="file-empty">先连接一台服务器，再查看远程文件。</li>}
         {loading && entries.length === 0 ? <li className="file-empty">读取中…</li> : null}
-        {!loading && entries.length === 0 && !error ? <li className="file-empty">空目录</li> : null}
+        {connected && backendId && !loading && entries.length === 0 && !error ? <li className="file-empty">空目录</li> : null}
         {entries.map((entry) => (
           <li key={entry.name}>
             <button type="button" title={entry.name} aria-pressed={selected === entry.name}
@@ -240,6 +233,36 @@ export default function FileBrowser({ backendId, connected, workingDirectory = n
           </li>
         ))}
       </ul>
+      <footer className="file-transfer-footer" aria-label="文件传输">
+        <div className="file-transfer-bar">
+          <button type="button" className="button button-small" disabled={!backendId || !connected || !path || loading} onClick={() => void chooseUpload()}>
+            {activeUpload || waiting ? "添加文件" : "上传文件"}
+          </button>
+          <span>{dragging ? "松开加入上传队列" : "可多选或拖入多个文件"}</span>
+        </div>
+        {(transfer || status) && <p className="file-transfer-status" role="status">{transfer || status}</p>}
+        {error && <p className="file-error">{error}</p>}
+        {uploads.jobs.length > 0 && <>
+          <div className="file-upload-summary">
+            <span role="status">{activeUpload ? `正在上传 · ${activeUpload.name}` : `已上传 ${completed}/${uploads.jobs.length} 个文件`}</span>
+            {(completed > 0 || failed > 0) && <button type="button" onClick={clearFinishedUploads}>清除记录</button>}
+          </div>
+          {shownUpload && <p className="file-upload-target" title={`${shownUpload.sessionName} · ${shownUpload.directory}`}>
+            {shownUpload.sessionName} · {shownUpload.directory}
+          </p>}
+          <ul className="file-upload-queue" aria-label="上传队列">
+            {uploads.jobs.map((job) => <li key={job.id} data-state={job.state}>
+              <span title={`${job.name} → ${job.sessionName} · ${job.directory}`}>{job.name}</span><small>{queueLabels[job.state]}</small>
+              {job.error && <p>{job.error}</p>}
+            </li>)}
+          </ul>
+        </>}
+        <div className="file-upload-meter">
+          <span>{activeUpload && percent === 100 ? "正在保存远端文件…" : shownUpload?.total != null ? `${formatSize(shownUpload.transferred)} / ${formatSize(shownUpload.total)}` : "上传进度"}</span>
+          <span>{waiting > 0 ? `等待 ${waiting} 个 · ` : ""}{percent === null ? "准备中…" : `${Math.floor(percent)}%`}</span>
+        </div>
+        <progress className="file-upload-progress" aria-label="上传进度" max={100} value={percent ?? undefined} />
+      </footer>
       {preview && <Modal title={preview.name} onClose={() => setPreview(null)} width="wide">
         <pre className="file-preview">{preview.content}</pre>
       </Modal>}

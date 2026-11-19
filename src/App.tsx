@@ -325,6 +325,7 @@ export default function App() {
             backendId={activeSession?.backendId ?? null}
             connected={activeSession?.state === "ready"}
             workingDirectory={activeSession?.workingDirectory ?? null}
+            sessionName={activeSession ? `${activeSession.profile.name}${activeSession.instance > 1 ? ` (${activeSession.instance})` : ""}` : undefined}
           />
         )}
       </aside>

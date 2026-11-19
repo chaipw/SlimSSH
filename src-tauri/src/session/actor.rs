@@ -37,7 +37,7 @@ use super::{
     directory::find_shell,
     manager::{ManagerInner, SessionControl},
     output::OutputBuffer,
-    transfer::Transfer,
+    transfer::{Transfer, TransferProgress},
     x11::{X11, PROTOCOL as X11_PROTOCOL},
 };
 
@@ -58,6 +58,7 @@ pub(super) enum ActorCommand {
     },
     Transfer {
         transfer: Transfer,
+        progress: Option<Channel<TransferProgress>>,
         reply: oneshot::Sender<Result<(), String>>,
     },
 }
@@ -645,7 +646,7 @@ pub(super) async fn run(
                                 .unwrap_or_else(|_| Err("读取远端目录超时".into()));
                             let _ = reply.send(outcome);
                         }
-                        Some(ActorCommand::Transfer { transfer, reply }) => {
+                        Some(ActorCommand::Transfer { transfer, progress, reply }) => {
                             let sftp = match open_sftp(ssh.as_deref()).await {
                                 Ok(sftp) => sftp,
                                 Err(error) => {
@@ -654,8 +655,21 @@ pub(super) async fn run(
                                 }
                             };
                             let cancellation = control.cancellation.clone();
+                            let upload_slot = if matches!(&transfer, Transfer::Upload { .. }) { Some(manager.upload_slot.clone()) } else { None };
                             tokio::spawn(async move {
-                                let result = transfer.run(&sftp, &cancellation).await.map_err(|error| error.to_string());
+                                let _permit = if let Some(slot) = upload_slot {
+                                    let permit = tokio::select! {
+                                        _ = cancellation.cancelled() => None,
+                                        result = slot.acquire_owned() => result.ok(),
+                                    };
+                                    if permit.is_none() {
+                                        let _ = sftp.close().await;
+                                        let _ = reply.send(Err("SSH 会话已关闭".into()));
+                                        return;
+                                    }
+                                    permit
+                                } else { None };
+                                let result = transfer.run(&sftp, &cancellation, progress).await.map_err(|error| error.to_string());
                                 let _ = sftp.close().await;
                                 let _ = reply.send(result);
                             });

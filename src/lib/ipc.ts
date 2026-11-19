@@ -57,8 +57,16 @@ export function sessionListDir(sessionId: string, path: string): Promise<{ path:
 export function sessionTransfer(
   sessionId: string,
   transfer: { kind: "download"; remote: string; local: string } | { kind: "upload"; directory: string; local: string },
+  onProgress?: (progress: TransferProgress) => void,
 ): Promise<void> {
-  return invoke("session_transfer", { sessionId, transfer });
+  const progress = new Channel<TransferProgress>();
+  progress.onmessage = onProgress ?? (() => undefined);
+  return invoke("session_transfer", { sessionId, transfer, progress });
+}
+
+export interface TransferProgress {
+  transferred: number;
+  total: number;
 }
 
 export function previewFile(sessionId: string, path: string): Promise<string> {

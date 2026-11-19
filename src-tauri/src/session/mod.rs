@@ -6,4 +6,4 @@ mod x11;
 mod transfer;
 
 pub(crate) use manager::SessionManager;
-pub(crate) use transfer::Transfer;
+pub(crate) use transfer::{Transfer, TransferProgress};

@@ -36,13 +36,13 @@ SectionEnd
 '@ | Set-Content -LiteralPath $fixtureScript -Encoding utf8
 
 $fixtures = @{}
-foreach ($version in @('0.1.1.0', '0.1.2.0', '0.1.10.0')) {
+foreach ($version in @('0.1.2.0', '0.1.3.0', '0.1.10.0')) {
   $output = Join-Path $TestRoot "fixture-$version.exe"
   Build-Installer $fixtureScript @("/DTEST_VERSION=$version", "/DTEST_OUTPUT=$output")
   $fixtures[$version] = $output
 }
 
-$payload = if ($AppBinary) { (Resolve-Path -LiteralPath $AppBinary).Path } else { $fixtures['0.1.2.0'] }
+$payload = if ($AppBinary) { (Resolve-Path -LiteralPath $AppBinary).Path } else { $fixtures['0.1.3.0'] }
 $setup = Join-Path $TestRoot 'SlimSSH-Setup-test.exe'
 $failureSetup = Join-Path $TestRoot 'setup-copy-failure.exe'
 # Compile the production version-check/upgrade code, but isolate admin access,
@@ -61,7 +61,7 @@ foreach ($case in @('fresh', 'older', 'same', 'newer', 'unknown', 'locked', 'rol
   Set-Content -LiteralPath $sentinel -Value 'must survive installation' -Encoding utf8
   $before = $null
   if ($case -ne 'fresh') {
-    $version = switch ($case) { 'same' {'0.1.2.0'} 'newer' {'0.1.10.0'} default {'0.1.1.0'} }
+    $version = switch ($case) { 'same' {'0.1.3.0'} 'newer' {'0.1.10.0'} default {'0.1.2.0'} }
     Copy-Item -LiteralPath $fixtures[$version] -Destination $target
     if ($case -eq 'unknown') { Set-Content -LiteralPath $target -Value 'not a versioned executable' }
     $before = (Get-FileHash -LiteralPath $target).Hash
