@@ -9,7 +9,7 @@ use std::{
 
 use tauri::{async_runtime::JoinHandle, ipc::Channel};
 use tokio::{
-    sync::{mpsc, oneshot},
+    sync::{mpsc, oneshot, Semaphore},
     time::{timeout_at, Instant},
 };
 use tokio_util::sync::CancellationToken;
@@ -22,7 +22,7 @@ use crate::{
 };
 
 use super::actor::{self, ActorCommand, HostKeyBroker};
-use super::transfer::Transfer;
+use super::transfer::{Transfer, TransferProgress};
 
 const MAX_SESSIONS: usize = 16;
 const COMMAND_QUEUE_SIZE: usize = 32;
@@ -64,6 +64,7 @@ impl SessionControl {
 
 pub(super) struct ManagerInner {
     sessions: Mutex<HashMap<String, SessionControl>>,
+    pub upload_slot: Arc<Semaphore>,
 }
 
 impl ManagerInner {
@@ -83,6 +84,7 @@ impl SessionManager {
         Self {
             inner: Arc::new(ManagerInner {
                 sessions: Mutex::new(HashMap::new()),
+                upload_slot: Arc::new(Semaphore::new(1)),
             }),
         }
     }
@@ -187,9 +189,10 @@ impl SessionManager {
         &self,
         session_id: &str,
         transfer: Transfer,
+        progress: Option<Channel<TransferProgress>>,
     ) -> Result<oneshot::Receiver<Result<(), String>>, String> {
         let (reply, receiver) = oneshot::channel();
-        self.send(session_id, ActorCommand::Transfer { transfer, reply })?;
+        self.send(session_id, ActorCommand::Transfer { transfer, progress, reply })?;
         Ok(receiver)
     }
 

@@ -7,7 +7,7 @@ use zeroize::Zeroizing;
 
 use crate::{
     model::{HostKeyDecision, ProfileSaveInput, ProfileView, RemoteDirectory, SessionEvent},
-    session::Transfer,
+    session::{Transfer, TransferProgress},
     AppState,
 };
 
@@ -204,6 +204,7 @@ pub async fn session_list_dir(
 pub async fn session_transfer(
     session_id: String,
     transfer: Transfer,
+    progress: Channel<TransferProgress>,
     state: State<'_, AppState>,
 ) -> Result<(), String> {
     let (remote, local) = match &transfer {
@@ -213,7 +214,7 @@ pub async fn session_transfer(
     if !remote.starts_with('/') || remote.len() > MAX_PATH_BYTES || remote.contains('\0') || !local.is_absolute() {
         return Err("文件路径无效".into());
     }
-    state.sessions.transfer(&session_id, transfer)?.await
+    state.sessions.transfer(&session_id, transfer, Some(progress))?.await
         .map_err(|_| "SSH 会话在传输期间关闭".to_string())?
 }
 

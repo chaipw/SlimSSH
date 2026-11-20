@@ -47,6 +47,7 @@ export interface HostKeyMismatchEvent {
 }
 
 export type SessionEvent =
+  | { type: "working_directory"; path: string }
   | { type: "state"; state: SessionState }
   | HostKeyRequiredEvent
   | HostKeyMismatchEvent
@@ -62,4 +63,5 @@ export interface WorkspaceSession {
   error: string | null;
   closedReason: string | null;
   backendId: string | null;
+  workingDirectory: string | null;
 }

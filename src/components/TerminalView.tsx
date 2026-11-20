@@ -91,6 +91,7 @@ interface TerminalViewProps {
   onBackendId: (sessionId: string, backendId: string) => void;
   onError: (sessionId: string, message: string) => void;
   onClosed: (sessionId: string, reason: string) => void;
+  onDirectoryChange?: (sessionId: string, path: string) => void;
   onActivate: (sessionId: string) => void;
   onReconnect: (sessionId: string) => void;
   onClose: (sessionId: string) => void;
@@ -110,6 +111,7 @@ export default function TerminalView({
   onBackendId,
   onError,
   onClosed,
+  onDirectoryChange,
   onActivate,
   onReconnect,
   onClose,
@@ -123,13 +125,13 @@ export default function TerminalView({
   const fitNowRef = useRef<() => void>(() => undefined);
   const scheduleFitRef = useRef<() => void>(() => undefined);
   const sessionPromiseRef = useRef<Promise<string> | null>(null);
-  const callbacksRef = useRef({ onStateChange, onBackendId, onError, onClosed, onActivate, onReconnect, onClose });
+  const callbacksRef = useRef({ onStateChange, onBackendId, onError, onClosed, onDirectoryChange, onActivate, onReconnect, onClose });
   const highlightRef = useRef(highlight);
   const [hostPrompt, setHostPrompt] = useState<HostKeyPrompt | null>(null);
 
   activeRef.current = active;
   highlightRef.current = highlight;
-  callbacksRef.current = { onStateChange, onBackendId, onError, onClosed, onActivate, onReconnect, onClose };
+  callbacksRef.current = { onStateChange, onBackendId, onError, onClosed, onDirectoryChange, onActivate, onReconnect, onClose };
 
   useEffect(() => {
     const container = containerRef.current;
@@ -332,6 +334,9 @@ export default function TerminalView({
     const handleEvent = (event: SessionEvent) => {
       if (disposed) return;
       switch (event.type) {
+        case "working_directory":
+          callbacksRef.current.onDirectoryChange?.(sessionId, event.path);
+          break;
         case "state":
           callbacksRef.current.onStateChange(sessionId, event.state);
           break;

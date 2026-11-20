@@ -40,7 +40,7 @@ it("uploads Windows drops only inside the file pane and uses the current remote 
     expect(mocks.transfer).not.toHaveBeenCalled();
     await act(async () => drop(170));
     expect(mocks.transfer.mock.calls).toEqual(paths.map((local) => [
-      "session-1", { kind: "upload", directory: "/home/demo", local },
+      "session-1", { kind: "upload", directory: "/home/demo", local }, expect.any(Function),
     ]));
     expect(mocks.list).toHaveBeenLastCalledWith("session-1", "/home/demo");
     expect(pane.textContent).toContain("已上传 2/2 个文件");
@@ -81,6 +81,30 @@ it("selects on click, opens on double click, and saves the right-clicked name", 
   } finally {
     await act(async () => root.unmount());
     rootNode.remove();
+    vi.unstubAllGlobals();
+  }
+});
+
+it("follows confirmed working directories and ignores an older directory response", async () => {
+  vi.stubGlobal("IS_REACT_ACT_ENVIRONMENT", true);
+  const mount = document.createElement("div");
+  document.body.append(mount);
+  const root = createRoot(mount);
+  let finishOld: ((value: unknown) => void) | undefined;
+  mocks.list.mockReset().mockImplementation((_id, path) => path === "/home/demo/old"
+    ? new Promise((resolve) => { finishOld = resolve; })
+    : Promise.resolve({ path, entries: [{ name: "new-file.txt", isDir: false, size: 2 }] }));
+  try {
+    await act(async () => root.render(<FileBrowser backendId="one" connected workingDirectory="/home/demo/old" />));
+    await act(async () => root.render(<FileBrowser backendId="one" connected workingDirectory="/home/demo/test 1" />));
+    expect(mocks.list).toHaveBeenLastCalledWith("one", "/home/demo/test 1");
+    await act(async () => finishOld?.({ path: "/home/demo/old", entries: [{ name: "stale.txt", isDir: false, size: 1 }] }));
+    expect(mount.textContent).toContain("test 1");
+    expect(mount.textContent).toContain("new-file.txt");
+    expect(mount.textContent).not.toContain("stale.txt");
+  } finally {
+    await act(async () => root.unmount());
+    mount.remove();
     vi.unstubAllGlobals();
   }
 });

@@ -37,6 +37,8 @@ code { font-family: "Cascadia Code", "Cascadia Mono", Consolas, monospace; }
 .titlebar.is-inactive .titlebar-brand { opacity: .55; }
 .titlebar-brand { width: 280px; min-width: 280px; display: flex; align-items: center; gap: 9px; padding: 0 14px; border-right: 1px solid var(--border-soft); }
 .titlebar-brand > * { pointer-events: none; }
+.titlebar-brand .sidebar-toggle { pointer-events: auto; flex: 0 0 26px; width: 26px; height: 24px; margin-left: auto; align-self: center; border-radius: 3px; }
+.titlebar-brand .sidebar-toggle svg { width: 16px; height: 16px; }
 .titlebar-brand .brand-mark { width: 21px; height: 21px; border-radius: 4px; font-size: 10px; }
 .titlebar-brand strong { color: #dbe3e5; font-size: 12px; font-weight: 600; letter-spacing: .3px; }
 .titlebar-brand span { color: var(--faint); font-size: 10px; letter-spacing: .5px; white-space: nowrap; }
@@ -53,6 +55,7 @@ code { font-family: "Cascadia Code", "Cascadia Mono", Consolas, monospace; }
 .display-settings-toggle span { pointer-events: none; }
 
 .sidebar { width: 280px; min-width: 280px; height: 100%; display: flex; flex-direction: column; background: #1a211f; border-right: 1px solid var(--border); }
+.sidebar[hidden] { display: none; }
 .sidebar-tabs { display: flex; height: 30px; min-height: 30px; border-bottom: 1px solid var(--border-soft); background: #161d1b; }
 .sidebar-tab { position: relative; flex: 1; border: 0; background: transparent; color: var(--muted); font-size: 12px; font-weight: 600; }
 .sidebar-tab:hover { color: #c3ced2; }
@@ -63,6 +66,26 @@ code { font-family: "Cascadia Code", "Cascadia Mono", Consolas, monospace; }
 .file-browser.is-drop-target { outline: 2px solid var(--cyan); outline-offset: -2px; background: var(--panel-raised); }
 .file-transfer-bar { display: flex; align-items: center; gap: 8px; padding: 8px 10px; color: var(--muted); font-size: 11px; }
 .file-transfer-status { margin: 0; padding: 4px 10px; color: var(--cyan); font-size: 11px; overflow-wrap: anywhere; }
+.file-transfer-footer { flex: 0 1 auto; min-height: 0; max-height: 48%; display: flex; flex-direction: column; border-top: 1px solid var(--border); background: var(--panel); }
+.file-transfer-footer .file-transfer-bar { flex: 0 0 auto; padding: 8px 10px 4px; }
+.file-transfer-footer .file-transfer-bar span { min-width: 0; }
+.file-transfer-footer .file-error, .file-transfer-footer .file-transfer-status { flex: 0 1 auto; min-height: 0; max-height: 72px; overflow: auto; }
+.file-upload-summary { display: flex; align-items: center; gap: 8px; padding: 4px 10px; color: var(--cyan); font-size: 11px; }
+.file-upload-summary > span { flex: 1; min-width: 0; overflow-wrap: anywhere; }
+.file-upload-summary button { flex: 0 0 auto; border: 0; padding: 2px; background: transparent; color: var(--muted); font-size: 10px; }
+.file-upload-target { margin: 0; padding: 0 10px 4px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--muted); font-size: 10px; }
+.file-upload-queue { flex: 1 1 auto; min-height: 0; max-height: 120px; overflow-y: auto; list-style: none; margin: 0; padding: 0 10px; scrollbar-width: thin; }
+.file-upload-queue li { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 3px 8px; padding: 4px 0; color: var(--text); font-size: 11px; }
+.file-upload-queue li > span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.file-upload-queue small { color: var(--muted); font-size: 10px; }
+.file-upload-queue li[data-state="uploading"] small { color: var(--cyan); }
+.file-upload-queue li[data-state="failed"] small, .file-upload-queue p { color: var(--danger); }
+.file-upload-queue p { grid-column: 1 / -1; margin: 0; overflow-wrap: anywhere; font-size: 10px; }
+.file-upload-meter { flex: 0 0 auto; display: flex; justify-content: space-between; gap: 8px; padding: 5px 10px; color: var(--muted); font-size: 10px; }
+.file-upload-progress { flex: 0 0 6px; display: block; width: 100%; height: 6px; margin: 0; border: 0; border-radius: 0; appearance: none; background: var(--border-soft); accent-color: var(--cyan); }
+.file-upload-progress::-webkit-progress-bar { background: var(--border-soft); }
+.file-upload-progress::-webkit-progress-value { background: var(--cyan); }
+.file-upload-progress::-moz-progress-bar { background: var(--cyan); }
 .file-menu-backdrop { position: fixed; inset: 0; z-index: 100; }
 .file-menu { position: absolute; min-width: 120px; padding: 4px; border: 1px solid var(--border); border-radius: 5px; background: var(--panel-raised); box-shadow: 0 6px 18px #0003; }
 .file-menu button { width: 100%; padding: 6px 10px; border: 0; border-radius: 3px; background: transparent; text-align: left; }
@@ -158,10 +181,10 @@ button.file-row:hover { background: #182126; }
 .terminal-host .xterm { height: 100%; }
 .terminal-host .xterm-viewport { scrollbar-width: thin; scrollbar-color: #354249 #0c1114; }
 .terminal-host .xterm-screen canvas { image-rendering: auto; }
-.workspace-statusbar { height: 27px; min-height: 27px; display: flex; align-items: center; justify-content: space-between; padding: 0 13px; border-top: 1px solid var(--border-soft); background: #1a211f; color: #65747a; font: 500 10px/1 "Cascadia Code", Consolas, monospace; }
+.workspace-statusbar { height: 27px; min-height: 27px; display: flex; align-items: center; justify-content: space-between; padding: 0 13px; border-top: 1px solid var(--border-soft); background: #1a211f; color: #65747a; font: 500 14px/1 "Cascadia Code", Consolas, monospace; }
 .workspace-statusbar > span { display: flex; align-items: center; gap: 7px; }
 .workspace-statusbar > div { display: flex; align-items: center; gap: 18px; }
-.status-toggle { padding: 3px 8px; border: 1px solid #2a363b; border-radius: 3px; background: transparent; color: #65747a; font: 500 10px/1 "Cascadia Code", Consolas, monospace; letter-spacing: .3px; transition: color 90ms ease, border-color 90ms ease, background-color 90ms ease; }
+.status-toggle { padding: 3px 8px; border: 1px solid #2a363b; border-radius: 3px; background: transparent; color: #65747a; font: 500 14px/1 "Cascadia Code", Consolas, monospace; letter-spacing: .3px; transition: color 90ms ease, border-color 90ms ease, background-color 90ms ease; }
 .status-toggle:hover { color: #a8b5ba; border-color: #3a494f; }
 .status-toggle.is-on { border-color: #35604c; background: #17352a; color: var(--cyan); }
 

@@ -71,6 +71,9 @@ pub enum SessionState {
 #[derive(Clone, Debug, Serialize)]
 #[serde(tag = "type", rename_all = "snake_case")]
 pub enum SessionEvent {
+    WorkingDirectory {
+        path: String,
+    },
     State {
         state: SessionState,
     },

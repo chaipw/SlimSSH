@@ -48,6 +48,7 @@ function newWorkspaceSession(profile: ProfileView, instance: number): WorkspaceS
     error: null,
     closedReason: null,
     backendId: null,
+    workingDirectory: null,
   };
 }
 
@@ -79,6 +80,7 @@ export default function App() {
   const [activeId, setActiveId] = useState<string | null>(null);
   const [highlight, setHighlight] = useState(() => localStorage.getItem("slimssh:highlight") !== "off");
   const [sidebarTab, setSidebarTab] = useState<"connections" | "files">("connections");
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(() => localStorage.getItem("slimssh:sidebar-collapsed") === "true");
   const [theme, setTheme] = useState<ThemeMode>(() =>
     localStorage.getItem("slimssh:theme") === "light" ? "light" : "dark",
   );
@@ -91,6 +93,10 @@ export default function App() {
   useEffect(() => {
     localStorage.setItem(DISPLAY_STORAGE, JSON.stringify(displaySizes));
   }, [displaySizes]);
+
+  useEffect(() => {
+    localStorage.setItem("slimssh:sidebar-collapsed", String(sidebarCollapsed));
+  }, [sidebarCollapsed]);
 
   const toggleTheme = useCallback(() => {
     setTheme((current) => (current === "dark" ? "light" : "dark"));
@@ -256,6 +262,10 @@ export default function App() {
     setSessions((current) => current.map((session) => session.id === id ? { ...session, closedReason: reason } : session));
   }, []);
 
+  const handleDirectoryChange = useCallback((id: string, path: string) => {
+    setSessions((current) => current.map((session) => session.id === id ? { ...session, workingDirectory: path } : session));
+  }, []);
+
   const sessionTabs = sessions.map((session) => ({
     id: session.id,
     name: session.instance === 1 ? session.profile.name : `${session.profile.name} (${session.instance})`,
@@ -275,10 +285,11 @@ export default function App() {
       "--term-gutter-font-size": `${displaySizes.gutter}px`,
       "--session-tab-font-size": `${displaySizes.tabs}px`,
     } as CSSProperties}>
-      <TitleBar theme={theme} onToggleTheme={toggleTheme} onOpenSettings={() => setDisplaySettingsOpen(true)} />
+      <TitleBar theme={theme} onToggleTheme={toggleTheme} onOpenSettings={() => setDisplaySettingsOpen(true)}
+        sidebarCollapsed={sidebarCollapsed} onToggleSidebar={() => setSidebarCollapsed((current) => !current)} />
 
       <div className="app-body">
-      <aside className="sidebar" aria-label="侧栏">
+      <aside id="slimssh-sidebar" className="sidebar" aria-label="侧栏" hidden={sidebarCollapsed}>
         <nav className="sidebar-tabs">
           <button
             type="button"
@@ -313,6 +324,8 @@ export default function App() {
             key={activeSession?.backendId ?? "no-session"}
             backendId={activeSession?.backendId ?? null}
             connected={activeSession?.state === "ready"}
+            workingDirectory={activeSession?.workingDirectory ?? null}
+            sessionName={activeSession ? `${activeSession.profile.name}${activeSession.instance > 1 ? ` (${activeSession.instance})` : ""}` : undefined}
           />
         )}
       </aside>
@@ -435,6 +448,7 @@ export default function App() {
                 onBackendId={handleBackendId}
                 onError={handleSessionError}
                 onClosed={handleSessionClosed}
+                onDirectoryChange={handleDirectoryChange}
                 onActivate={setActiveId}
                 onReconnect={reconnect}
                 onClose={closeSession}

@@ -34,9 +34,10 @@ use crate::{
 };
 
 use super::{
+    directory::find_shell,
     manager::{ManagerInner, SessionControl},
     output::OutputBuffer,
-    transfer::Transfer,
+    transfer::{Transfer, TransferProgress},
     x11::{X11, PROTOCOL as X11_PROTOCOL},
 };
 
@@ -57,6 +58,7 @@ pub(super) enum ActorCommand {
     },
     Transfer {
         transfer: Transfer,
+        progress: Option<Channel<TransferProgress>>,
         reply: oneshot::Sender<Result<(), String>>,
     },
 }
@@ -472,6 +474,7 @@ pub(super) async fn run(
         }
     }
 
+    let mut ssh = ssh.map(Arc::new);
     let mut channel = if failure.is_none() {
         if let Some(handle) = ssh.as_mut() {
             let setup = async {
@@ -524,6 +527,54 @@ pub(super) async fn run(
         None
     };
 
+    if channel.is_some() {
+        if let Some(handle) = ssh.as_ref() {
+            let handle = handle.clone();
+            let directory_events = events.clone();
+            let cancellation = control.cancellation.clone();
+            tokio::spawn(async move {
+                let setup = open_sftp(Some(handle.as_ref()));
+                let sftp = tokio::select! {
+                    _ = cancellation.cancelled() => return,
+                    result = setup => match result { Ok(sftp) => sftp, Err(_) => return },
+                };
+                let pid = tokio::select! {
+                    _ = cancellation.cancelled() => return,
+                    result = timeout(Duration::from_secs(3), find_shell(&sftp)) => match result {
+                        Ok(Ok(pid)) => pid,
+                        _ => { let _ = sftp.close().await; return; }
+                    },
+                };
+                let mut tick = interval(Duration::from_millis(600));
+                tick.set_missed_tick_behavior(MissedTickBehavior::Delay);
+                let mut previous = String::new();
+                let mut failures = 0;
+                loop {
+                    tokio::select! {
+                        _ = cancellation.cancelled() => break,
+                        _ = tick.tick() => {},
+                    }
+                    let result = tokio::select! {
+                        _ = cancellation.cancelled() => break,
+                        result = timeout(Duration::from_secs(3), sftp.read_link(format!("/proc/{pid}/cwd"))) => result,
+                    };
+                    match result {
+                        Ok(Ok(path)) if path.starts_with('/') => {
+                            failures = 0;
+                            if path != previous {
+                                if directory_events.send(SessionEvent::WorkingDirectory { path: path.clone() }).is_err() { break; }
+                                previous = path;
+                            }
+                        }
+                        // Unsupported procfs/SFTP must not affect the terminal.
+                        _ => { failures += 1; if failures >= 3 { break; } }
+                    }
+                }
+                let _ = timeout(Duration::from_secs(1), sftp.close()).await;
+            });
+        }
+    }
+
     if let Some(ssh_channel) = channel.as_mut() {
         let mut sftp_session: Option<SftpSession> = None;
         while failure.is_none() && !remote_closed {
@@ -552,7 +603,7 @@ pub(super) async fn run(
                             }
                         }
                         Some(ActorCommand::Preview { path, reply }) => {
-                            let channel = open_sftp(ssh.as_ref()).await;
+                            let channel = open_sftp(ssh.as_deref()).await;
                             tokio::spawn(async move {
                                 let result = async {
                                     let sftp = channel?;
@@ -577,7 +628,7 @@ pub(super) async fn run(
                         Some(ActorCommand::ListDir { path, reply }) => {
                             let outcome = async {
                                 if sftp_session.is_none() {
-                                    sftp_session = Some(open_sftp(ssh.as_ref()).await?);
+                                    sftp_session = Some(open_sftp(ssh.as_deref()).await?);
                                 }
                                 let sftp = sftp_session.as_ref().ok_or("SFTP 会话不可用")?;
                                 let path = sftp.canonicalize(path).await.map_err(|error| error.to_string())?;
@@ -595,8 +646,8 @@ pub(super) async fn run(
                                 .unwrap_or_else(|_| Err("读取远端目录超时".into()));
                             let _ = reply.send(outcome);
                         }
-                        Some(ActorCommand::Transfer { transfer, reply }) => {
-                            let sftp = match open_sftp(ssh.as_ref()).await {
+                        Some(ActorCommand::Transfer { transfer, progress, reply }) => {
+                            let sftp = match open_sftp(ssh.as_deref()).await {
                                 Ok(sftp) => sftp,
                                 Err(error) => {
                                     let _ = reply.send(Err(error));
@@ -604,8 +655,21 @@ pub(super) async fn run(
                                 }
                             };
                             let cancellation = control.cancellation.clone();
+                            let upload_slot = if matches!(&transfer, Transfer::Upload { .. }) { Some(manager.upload_slot.clone()) } else { None };
                             tokio::spawn(async move {
-                                let result = transfer.run(&sftp, &cancellation).await.map_err(|error| error.to_string());
+                                let _permit = if let Some(slot) = upload_slot {
+                                    let permit = tokio::select! {
+                                        _ = cancellation.cancelled() => None,
+                                        result = slot.acquire_owned() => result.ok(),
+                                    };
+                                    if permit.is_none() {
+                                        let _ = sftp.close().await;
+                                        let _ = reply.send(Err("SSH 会话已关闭".into()));
+                                        return;
+                                    }
+                                    permit
+                                } else { None };
+                                let result = transfer.run(&sftp, &cancellation, progress).await.map_err(|error| error.to_string());
                                 let _ = sftp.close().await;
                                 let _ = reply.send(result);
                             });
